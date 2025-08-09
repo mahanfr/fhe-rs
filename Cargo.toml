@@ -1,0 +1,21 @@
+[package]
+name = "hpre"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "hpre"
+src = "src/main.rs"
+
+[lib]
+name = "hpre"
+path = "src/lib.rs"
+
+[dependencies]
+rand = "0.8"
+ndarray = "0.16"
+nalgebra = "0.34"
+rand_distr = "0.4"
+num-bigint = "0.4"
+num-traits = "0.2"
+ff = "0.13"
