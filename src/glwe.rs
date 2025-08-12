@@ -68,7 +68,7 @@ impl GLWECrypto {
         for i in 0..self.params.k {
             let a = fhe_sample(
                 FHESamplingMethod::Uniform(self.params.q / 2, self.params.q / 2),
-                self.params.n as usize,
+                self.params.n,
             );
             poly_add(
                 &self.params,
@@ -93,7 +93,7 @@ impl GLWECrypto {
 
     pub fn encrypt(&self, pub_key: &GLWEPublicKey, data: Vec<u8>) -> GLWECiphertext {
         let mut pt = encode_base_p(&data, self.params.p);
-        pt.resize(self.params.n as usize, 0);
+        pt.resize(self.params.n, 0);
         let u = fhe_sample(FHESamplingMethod::UniformBinary, self.params.n);
         let delta_m: Vec<i64> = pt.iter().map(|x| x * self.params.delta()).collect();
         let e1 = fhe_sample(

@@ -9,8 +9,8 @@ pub fn poly_add(params: &FHEParams, vec1: &mut Vec<i64>, vec2: &Vec<i64>) {
 
 /// Polynumial multiplication
 pub fn poly_mul(params: &FHEParams, vec1: &Vec<i64>, vec2: &Vec<i64>) -> Vec<i64> {
-    let mut res: Vec<i64> = Vec::with_capacity(params.n as usize);
-    let us_n = params.n as usize;
+    let mut res: Vec<i64> = Vec::with_capacity(params.n);
+    let us_n = params.n;
     for i in 0..us_n {
         for j in 0..us_n {
             let k = (i + j) % us_n;
@@ -18,7 +18,7 @@ pub fn poly_mul(params: &FHEParams, vec1: &Vec<i64>, vec2: &Vec<i64>) -> Vec<i64
             if i + j >= us_n {
                 coef *= -1;
             }
-            res[k] = (res[k] + coef) % params.q as i64;
+            res[k] = (res[k] + coef) % params.q;
         }
     }
     res
@@ -39,12 +39,12 @@ pub fn encode_base_p(data: &[u8], p: i64) -> Vec<i64> {
     for &b in data {
         let mut rem = b as i64;
         for _ in 0..digits_per_byte {
-            let mut val = rem % p as i64;
+            let mut val = rem % p;
             if p > 2 {
-                val = -(p as i64 / 2) + val;
+                val += -(p / 2);
             }
             encoded.push(val);
-            rem /= p as i64;
+            rem /= p;
         }
     }
     encoded
@@ -69,9 +69,9 @@ pub fn decode_base_p(encoded: &[i64], p: i64) -> Vec<u8> {
         let mut value: i64 = 0;
         let mut base: i64 = 1;
         for &ed in chunk {
-            let mut digit = ed.clone();
+            let mut digit = ed;
             if p > 2 {
-                digit = (p as i64 / 2) + digit;
+                digit += p / 2;
             }
             value += digit * base;
             base *= p;
@@ -95,13 +95,13 @@ mod tests {
 
         let data = "Hello world!\n";
         let p = 8i64;
-        let encoded = encode_base_p(&data.as_bytes(), p);
+        let encoded = encode_base_p(data.as_bytes(), p);
         let decoded = decode_base_p(&encoded, p);
         assert_eq!(data.as_bytes(), decoded);
 
         let data = "Encodable message!\n";
         let p = 512i64;
-        let encoded = encode_base_p(&data.as_bytes(), p);
+        let encoded = encode_base_p(data.as_bytes(), p);
         let decoded = decode_base_p(&encoded, p);
         assert_eq!(data.as_bytes(), decoded);
     }
