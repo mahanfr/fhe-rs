@@ -1,24 +1,74 @@
 use crate::fhe::FHEParams;
 
+/// normalize x into 0..q-1 (use i128 for safety)
+#[inline]
+pub fn mod_q_i64(x: i128, q: i64) -> i64 {
+    let q_i = q as i128;
+    let mut v = x % q_i;
+    if v < 0 { v += q_i; }
+    v as i64
+}
+
+#[inline]
+pub fn center_to_signed(c: i64, q: i64) -> i64 {
+    if c > q/2 { c - q } else { c }
+}
+
+/// round-to-nearest for signed integers
+#[inline]
+pub fn div_round_signed(centered: i64, delta: i64) -> i64 {
+    if centered >= 0 {
+        ((centered as i128 + (delta as i128)/2) / (delta as i128)) as i64
+    } else {
+        -((( - (centered as i128) + (delta as i128)/2) / (delta as i128)) as i64)
+    }
+}
+
+/// ensure vec is exactly length n (pads with zeros or truncates)
+pub fn ensure_len(vec: &mut Vec<i64>, n: usize) {
+    if vec.len() < n {
+        vec.resize(n, 0);
+    } else if vec.len() > n {
+        vec.truncate(n);
+    }
+}
+
+
 /// Polynumial multiplication
 pub fn poly_add(params: &FHEParams, vec1: &mut Vec<i64>, vec2: &Vec<i64>) {
+    ensure_len(vec1, params.n);
+    let mut rhs = vec2.clone();
+    ensure_len(&mut rhs, params.n);
     for i in 0..params.n {
-        vec1[i] = (vec1[i] + vec2[i]) % params.q;
+        let sum = vec1[i] as i128 + rhs[i] as i128;
+        vec1[i] = mod_q_i64(sum, params.q);
     }
 }
 
 /// Polynumial multiplication
-pub fn poly_mul(params: &FHEParams, vec1: &Vec<i64>, vec2: &Vec<i64>) -> Vec<i64> {
-    let mut res: Vec<i64> = Vec::with_capacity(params.n);
-    let us_n = params.n;
-    for i in 0..us_n {
-        for j in 0..us_n {
-            let k = (i + j) % us_n;
-            let mut coef = vec1[i] * vec2[j];
-            if i + j >= us_n {
-                coef *= -1;
+pub fn poly_mul(params: &FHEParams, a: &Vec<i64>, b: &Vec<i64>) -> Vec<i64> {
+    let n = params.n;
+    let q = params.q;
+    // ensure inputs are n long
+    let mut aa = a.clone();
+    let mut bb = b.clone();
+    ensure_len(&mut aa, n);
+    ensure_len(&mut bb, n);
+
+    let mut res: Vec<i64> = vec![0i64; n];
+
+    for i in 0..n {
+        for j in 0..n {
+            let k = (i + j) % n;
+            // compute product in i128
+            let mut prod = (aa[i] as i128) * (bb[j] as i128);
+            // negacyclic reduction: x^n = -1 so if i+j >= n flip sign
+            if i + j >= n {
+                prod = -prod;
             }
-            res[k] = (res[k] + coef) % params.q;
+            // add to accumulator, reduce modularly using i128
+            let acc = res[k] as i128 + prod;
+            res[k] = mod_q_i64(acc, q);
         }
     }
     res

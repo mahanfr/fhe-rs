@@ -50,7 +50,11 @@ impl FHEParams {
         }
     }
 
+    pub fn set_standard_diviation(&mut self, std_dev: f32) {
+        self.std_dev = std_dev;
+    }
+
     pub fn delta(&self) -> i64 {
-        self.q / self.p
+        (self.q - 1) / self.p
     }
 }
