@@ -1,11 +1,13 @@
 use crate::{
     fhe::FHEParams,
-    sampling::{fhe_sample, FHESamplingMethod}, utils::{encode_base_p, poly_add, poly_mul},
+    sampling::{FHESamplingMethod, fhe_sample},
+    utils::{encode_base_p, poly_add, poly_mul},
 };
 
 #[derive(Debug, Clone)]
 pub struct GLWECiphertext {
-    body: Vec<i64>
+    d: Vec<Vec<i64>>,
+    b: Vec<i64>,
 }
 
 #[derive(Debug, Clone)]
@@ -34,7 +36,7 @@ impl GLWESecretKey {
 #[derive(Debug, Clone)]
 pub struct GLWEPublicKey {
     a: Vec<Vec<i64>>,
-    b: Vec<i64>
+    b: Vec<i64>,
 }
 
 #[derive(Debug, Clone)]
@@ -51,7 +53,7 @@ impl GLWECrypto {
         }
     }
 
-    pub fn gen_secret_key(&self) -> GLWESecretKey {
+    fn gen_secret_key(&self) -> GLWESecretKey {
         let mut s = Vec::with_capacity(self.params.k);
         for _ in 0..self.params.k {
             s.push(fhe_sample(self.sec_sampling_method, self.params.n));
@@ -66,41 +68,52 @@ impl GLWECrypto {
         for i in 0..self.params.k {
             let a = fhe_sample(
                 FHESamplingMethod::Uniform(self.params.q / 2, self.params.q / 2),
-                self.params.n as usize
+                self.params.n as usize,
             );
             poly_add(
-                &self.params, 
+                &self.params,
                 &mut as_sum,
-                &poly_mul(&self.params, &a, &sec_key.s[i])
+                &poly_mul(&self.params, &a, &sec_key.s[i]),
             );
             a_vec.push(a);
         }
-        let e = fhe_sample(FHESamplingMethod::Gaussian(self.params.std_dev), self.params.n);
+        let e = fhe_sample(
+            FHESamplingMethod::Gaussian(self.params.std_dev),
+            self.params.n,
+        );
         poly_add(&self.params, &mut as_sum, &e);
-        (sec_key, GLWEPublicKey {a: a_vec, b: as_sum})
+        (
+            sec_key,
+            GLWEPublicKey {
+                a: a_vec,
+                b: as_sum,
+            },
+        )
     }
 
-    pub fn encrypt_with_secret(&self, sec_key: GLWESecretKey, data: Vec<u8>) {
+    pub fn encrypt(&self, pub_key: &GLWEPublicKey, data: Vec<u8>) -> GLWECiphertext {
         let mut pt = encode_base_p(&data, self.params.p);
         pt.resize(self.params.n as usize, 0);
+        let u = fhe_sample(FHESamplingMethod::UniformBinary, self.params.n);
         let delta_m: Vec<i64> = pt.iter().map(|x| x * self.params.delta()).collect();
-        let mut as_sum: Vec<i64> = Vec::new();
+        let e1 = fhe_sample(
+            FHESamplingMethod::Gaussian(self.params.std_dev),
+            self.params.n,
+        );
+        let mut b = poly_mul(&self.params, &pub_key.b, &u);
+        poly_add(&self.params, &mut b, &delta_m);
+        poly_add(&self.params, &mut b, &e1);
+
+        let mut d: Vec<Vec<i64>> = Vec::new();
         for i in 0..self.params.k {
-            let a = fhe_sample(
-                FHESamplingMethod::Uniform(self.params.q / 2, self.params.q / 2),
-                self.params.n as usize
+            let e2 = fhe_sample(
+                FHESamplingMethod::Gaussian(self.params.std_dev),
+                self.params.n,
             );
-            poly_add(
-                &self.params, 
-                &mut as_sum,
-                &poly_mul(&self.params, &a, &sec_key.s[i])
-            );
+            let mut pka_dot_u = poly_mul(&self.params, &pub_key.a[i], &u);
+            poly_add(&self.params, &mut pka_dot_u, &e2);
+            d.push(pka_dot_u);
         }
-        let e = fhe_sample(FHESamplingMethod::Uniform(0, self.params.delta() / 2), self.params.n);
-        poly_add(&self.params, &mut as_sum, &delta_m);
-        poly_add(&self.params, &mut as_sum, &e);
-
+        GLWECiphertext { b, d }
     }
-
 }
-

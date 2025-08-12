@@ -1,6 +1,5 @@
 use rand_distr::{Distribution, Normal, Uniform};
 
-
 #[derive(Debug, Clone, Copy)]
 pub enum FHESamplingMethod {
     Uniform(i64, i64),
@@ -9,11 +8,7 @@ pub enum FHESamplingMethod {
     Gaussian(f32),
 }
 
-pub fn fhe_sample(
-    sampling_method: FHESamplingMethod,
-    size: usize
-    ) -> Vec<i64> {
-    
+pub fn fhe_sample(sampling_method: FHESamplingMethod, size: usize) -> Vec<i64> {
     match sampling_method {
         FHESamplingMethod::UniformBinary => fhe_sampling_uniform(0, 2, size),
         FHESamplingMethod::UniformTernary => fhe_sampling_uniform(-1, 2, size),
@@ -22,7 +17,7 @@ pub fn fhe_sample(
     }
 }
 
-pub fn fhe_sampling_uniform(low: i64, high:i64, size: usize) -> Vec<i64> {
+pub fn fhe_sampling_uniform(low: i64, high: i64, size: usize) -> Vec<i64> {
     let mut coeff = Vec::new();
     let mut rng = rand::thread_rng();
     let bin_uniform = Uniform::new(low, high);

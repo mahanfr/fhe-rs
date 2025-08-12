@@ -31,11 +31,23 @@ impl Default for FHEParams {
 
 impl FHEParams {
     pub fn new_lwe(q: i64, p: i64, k: usize) -> Self {
-        Self { q, p, k, n: 1, ..Default::default()}
+        Self {
+            q,
+            p,
+            k,
+            n: 1,
+            ..Default::default()
+        }
     }
 
     pub fn new_rlwe(q: i64, p: i64, n: usize) -> Self {
-        Self { q, p, k: 1, n, ..Default::default()}
+        Self {
+            q,
+            p,
+            k: 1,
+            n,
+            ..Default::default()
+        }
     }
 
     pub fn delta(&self) -> i64 {

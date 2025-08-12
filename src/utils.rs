@@ -3,7 +3,7 @@ use crate::fhe::FHEParams;
 /// Polynumial multiplication
 pub fn poly_add(params: &FHEParams, vec1: &mut Vec<i64>, vec2: &Vec<i64>) {
     for i in 0..params.n {
-       vec1[i] = (vec1[i] + vec2[i]) % params.q;
+        vec1[i] = (vec1[i] + vec2[i]) % params.q;
     }
 }
 
@@ -58,7 +58,10 @@ pub fn decode_base_p(encoded: &[i64], p: i64) -> Vec<u8> {
         return encoded.iter().map(|i| (*i & 0xff) as u8).collect();
     }
     let digits_per_byte = ((255.0f32).ln() / (p as f32).ln()).ceil() as usize;
-    assert!(encoded.len() % digits_per_byte == 0, "Invalid encoded length");
+    assert!(
+        encoded.len() % digits_per_byte == 0,
+        "Invalid encoded length"
+    );
 
     let mut decoded = Vec::with_capacity(encoded.len() / digits_per_byte);
 
