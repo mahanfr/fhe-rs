@@ -146,4 +146,25 @@ impl GLWECrypto {
         }
         decoded_symbols
     }
+
+    pub fn add_ciphertexts(&self, c1: &GLWECiphertext, c2: &GLWECiphertext)
+        -> GLWECiphertext {
+        let n = self.params.n;
+        let q = self.params.q;
+        let mut b = vec![0i64; n];
+        for i in 0..n { 
+            let s = mod_q_i64(c1.b[i] as i128 + c2.b[i] as i128, q); 
+            b[i] = mod_q_i64((s + q).into(), q);
+        }
+        let mut d = Vec::with_capacity(self.params.k);
+        for i in 0..self.params.k {
+            let mut di = vec![0i64; n];
+            for j in 0..n {
+                let s = mod_q_i64(c1.d[i][j] as i128 + c2.d[i][j] as i128, q);
+                di[j] = mod_q_i64((s + q).into(), q);
+            }
+            d.push(di);
+        }
+        GLWECiphertext { b, d }
+    }
 }

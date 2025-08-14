@@ -50,6 +50,10 @@ impl FHEParams {
         }
     }
 
+    pub fn set_complexity(&mut self, k: usize) {
+        self.k = k;
+    }
+
     pub fn set_standard_diviation(&mut self, std_dev: f32) {
         self.std_dev = std_dev;
     }
