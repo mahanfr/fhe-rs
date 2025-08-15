@@ -167,4 +167,38 @@ impl GLWECrypto {
         }
         GLWECiphertext { b, d }
     }
+
+    pub fn multiply_by_constant_value(&self, ct: &mut GLWECiphertext, c: i64) {
+        for poly in ct.d.iter_mut() {
+            for coeff in poly.iter_mut() {
+                *coeff = (*coeff * c).rem_euclid(self.params.q);
+            }
+        }
+        for coeff in ct.b.iter_mut() {
+            *coeff = (*coeff * c).rem_euclid(self.params.q);
+        }
+    }
+
+    pub fn multyply_by_plaintext(&self, ct:&GLWECiphertext, pt: &Vec<i64>) -> GLWECiphertext {
+        // Negacyclic conv using your (fixed) poly_mul
+        let b = poly_mul(&self.params, &ct.b, pt);
+
+        let mut d = Vec::with_capacity(self.params.k);
+        for i in 0..self.params.k {
+            d.push(poly_mul(&self.params, &ct.d[i], pt));
+        }
+
+        GLWECiphertext { b, d } 
+    }
+
+    pub fn lift_plain_poly_to_q(&self, m_poly_p: &Vec<i64>) -> Vec<i64> {
+        let q = self.params.q;
+        let mut v = m_poly_p.clone();
+        if v.len() < self.params.n { v.resize(self.params.n, 0); } else if v.len() > self.params.n { v.truncate(self.params.n); }
+        for c in v.iter_mut() {
+            *c = ((*c % q) + q) % q;
+        }
+        v
+    }
+
 }
