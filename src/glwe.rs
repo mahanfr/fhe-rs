@@ -1,13 +1,23 @@
 use crate::{
     fhe::FHEParams,
     sampling::{fhe_sample, FHESamplingMethod},
-    utils::{center_to_signed, decode_base_p, div_round_signed, encode_base_p, mod_q_i64, poly_add, poly_mul},
+    utils::{center_to_signed, decompose_balanced, div_round_signed, encode_base_p, mod_q_i64, poly_add, poly_mul},
 };
 
 #[derive(Debug, Clone)]
 pub struct GLWECiphertext {
     d: Vec<Vec<i64>>,
     b: Vec<i64>,
+}
+
+impl GLWECiphertext {
+
+    fn zero(params: &FHEParams) -> Self {
+        GLWECiphertext {
+            b: vec![0i64; params.n],
+            d: (0..params.k).map(|_| vec![0i64; params.n]).collect(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -168,7 +178,7 @@ impl GLWECrypto {
         GLWECiphertext { b, d }
     }
 
-    pub fn multiply_by_constant_value(&self, ct: &mut GLWECiphertext, c: i64) {
+    pub fn scale_ciphertext(&self, ct: &mut GLWECiphertext, c: i64) {
         for poly in ct.d.iter_mut() {
             for coeff in poly.iter_mut() {
                 *coeff = (*coeff * c).rem_euclid(self.params.q);
@@ -177,6 +187,63 @@ impl GLWECrypto {
         for coeff in ct.b.iter_mut() {
             *coeff = (*coeff * c).rem_euclid(self.params.q);
         }
+    }
+
+    pub fn multiply_decomposed(&self, ct: &GLWECiphertext, m_poly: &Vec<i64>, base: i64, balanced:bool) -> GLWECiphertext {
+        let q = self.params.q;
+        // Find max number of digits among coefficients
+        let max_digits = m_poly.iter().map(|&c| {
+            let mut cc = c.abs();
+            let mut d = 0usize;
+            while cc > 0 { cc /= base; d += 1; }
+            d.max(1)
+        }).max().unwrap_or(1);
+
+        let mut acc = GLWECiphertext::zero(&self.params);
+        let mut pow = 1i128; // B^i
+
+        for i in 0..max_digits {
+            // build digit polynomial d_i(x) in Z_q
+            let mut di_poly_q = vec![0i64; self.params.n];
+            for j in 0..self.params.n.min(m_poly.len()) {
+                // extract i-th digit of m_poly[j]
+                let cij = m_poly[j];
+                let digit = if balanced {
+                    // reconstruct balanced digit at layer i
+                    // easiest: decompose cij once; for brevity here’s a compact method:
+                    // NOTE: for production, pre-decompose each cij outside this loop.
+                    let digs = decompose_balanced(cij, base);
+                    if i < digs.len() { digs[i] } else { 0 }
+                } else {
+                    let mut cc = cij.abs();
+                    let mut k = 0;
+                    let mut dval = 0i64;
+                    while k <= i {
+                        dval = (cc % base) as i64;
+                        cc /= base;
+                        k += 1;
+                    }
+                    if cij < 0 { -dval } else { dval }
+                };
+
+                // effective scalar for this position is digit * B^i
+                let eff = ((digit as i128) * pow) % (q as i128);
+                di_poly_q[j] = mod_q_i64(eff, q);
+            }
+
+            // ct * di_poly_q (negacyclic multiplication)
+            let part_b = poly_mul(&self.params, &ct.b, &di_poly_q);
+            let mut part_d = Vec::with_capacity(self.params.k);
+            for t in 0..self.params.k {
+                part_d.push(poly_mul(&self.params, &ct.d[t], &di_poly_q));
+            }
+            let part = GLWECiphertext { b: part_b, d: part_d };
+            acc = add_ciphertexts(&self.params, &acc, &part);
+
+            pow = (pow * (base as i128)) % (q as i128);
+            if pow < 0 { pow += q as i128; }
+        }
+        acc
     }
 
     pub fn multyply_by_plaintext(&self, ct:&GLWECiphertext, pt: &Vec<i64>) -> GLWECiphertext {
@@ -201,4 +268,24 @@ impl GLWECrypto {
         v
     }
 
+}
+
+#[inline]
+fn add_ciphertexts(params: &FHEParams, c1: &GLWECiphertext, c2: &GLWECiphertext) -> GLWECiphertext {
+    let q = params.q as i128;
+    let mut b = vec![0i64; params.n];
+    for i in 0..params.n {
+        let s = (c1.b[i] as i128 + c2.b[i] as i128) % q;
+        b[i] = ((s + q) % q) as i64;
+    }
+    let mut d = Vec::with_capacity(params.k);
+    for i in 0..params.k {
+        let mut di = vec![0i64; params.n];
+        for j in 0..params.n {
+            let s = (c1.d[i][j] as i128 + c2.d[i][j] as i128) % q;
+            di[j] = ((s + q) % q) as i64;
+        }
+        d.push(di);
+    }
+    GLWECiphertext { b, d }
 }

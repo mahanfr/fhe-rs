@@ -24,6 +24,42 @@ pub fn div_round_signed(centered: i64, delta: i64) -> i64 {
     }
 }
 
+#[inline]
+pub fn trim_vector(vec: &Vec<u8>) -> Vec<u8> {
+    vec.iter().skip_while(|&&byte| byte == 0).cloned().collect()
+}
+
+/// Unsigned base-B decomposition: c = sum_i digits[i] * B^i, digits in [0, B-1]
+pub fn decompose_unsigned(mut c: i128, base: i64) -> Vec<i64> {
+    let b = base as i128;
+    let mut out = Vec::new();
+    if c < 0 {
+        c = -c; // handle sign outside
+    }
+    while c > 0 {
+        out.push((c % b) as i64);
+        c /= b;
+    }
+    if out.is_empty() { out.push(0); }
+    out
+}
+
+/// Balanced base-B decomposition: digits in [ -⌊B/2⌋ , ... , ⌈B/2⌉-1 ]
+pub fn decompose_balanced(mut c: i64, base: i64) -> Vec<i64> {
+    let half = base / 2;
+    let mut out = Vec::new();
+    while c != 0 {
+        let mut r = c % base;
+        if r > half { r -= base; }            // move to negative side
+        if r < -half { r += base; }           // move to positive side
+        out.push(r as i64);
+        c = (c - r) / base;
+    }
+    if out.is_empty() { out.push(0); }
+    out
+}
+
+
 /// ensure vec is exactly length n (pads with zeros or truncates)
 pub fn ensure_len(vec: &mut Vec<i64>, n: usize) {
     if vec.len() < n {
@@ -32,7 +68,6 @@ pub fn ensure_len(vec: &mut Vec<i64>, n: usize) {
         vec.truncate(n);
     }
 }
-
 
 /// Polynumial multiplication
 pub fn poly_add(params: &FHEParams, vec1: &mut Vec<i64>, vec2: &Vec<i64>) {
