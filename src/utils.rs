@@ -5,22 +5,24 @@ use crate::fhe::FHEParams;
 pub fn mod_q_i64(x: i128, q: i64) -> i64 {
     let q_i = q as i128;
     let mut v = x % q_i;
-    if v < 0 { v += q_i; }
+    if v < 0 {
+        v += q_i;
+    }
     v as i64
 }
 
 #[inline]
 pub fn center_to_signed(c: i64, q: i64) -> i64 {
-    if c > q/2 { c - q } else { c }
+    if c > q / 2 { c - q } else { c }
 }
 
 /// round-to-nearest for signed integers
 #[inline]
 pub fn div_round_signed(centered: i64, delta: i64) -> i64 {
     if centered >= 0 {
-        ((centered as i128 + (delta as i128)/2) / (delta as i128)) as i64
+        ((centered as i128 + (delta as i128) / 2) / (delta as i128)) as i64
     } else {
-        -((( - (centered as i128) + (delta as i128)/2) / (delta as i128)) as i64)
+        -(((-(centered as i128) + (delta as i128) / 2) / (delta as i128)) as i64)
     }
 }
 
@@ -40,7 +42,9 @@ pub fn decompose_unsigned(mut c: i128, base: i64) -> Vec<i64> {
         out.push((c % b) as i64);
         c /= b;
     }
-    if out.is_empty() { out.push(0); }
+    if out.is_empty() {
+        out.push(0);
+    }
     out
 }
 
@@ -50,15 +54,20 @@ pub fn decompose_balanced(mut c: i64, base: i64) -> Vec<i64> {
     let mut out = Vec::new();
     while c != 0 {
         let mut r = c % base;
-        if r > half { r -= base; }            // move to negative side
-        if r < -half { r += base; }           // move to positive side
+        if r > half {
+            r -= base;
+        } // move to negative side
+        if r < -half {
+            r += base;
+        } // move to positive side
         out.push(r as i64);
         c = (c - r) / base;
     }
-    if out.is_empty() { out.push(0); }
+    if out.is_empty() {
+        out.push(0);
+    }
     out
 }
-
 
 /// ensure vec is exactly length n (pads with zeros or truncates)
 pub fn ensure_len(vec: &mut Vec<i64>, n: usize) {
